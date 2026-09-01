@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AarogyaCase — Patient Case-Taking Software</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!--
+  =============================================================
+  AAROGYACASE — MAINTENANCE MAP
+
+  CSS:
+    1. App Shell
+    2. Patient Intake Wizard
+    3. Doctor Dashboard
+    4. Generated Case Sheet & Overlay
+    5. Responsive Layout
+
+  HTML:
+    1. Patient Intake View
+    2. Doctor Dashboard View
+    3. Generated Case Sheet Modal
+    4. Global Toast
+
+  JavaScript:
+    1. Data Model & Application State
+    2. Patient Intake Wizard Logic
+    3. Doctor Dashboard Logic
+    4. Voice-Assist Simulation
+    5. Case Sheet Generation
+    6. Global Navigation & UI Utilities
+    7. Application Initialization
+
+  NOTE: This refactor deliberately preserves existing IDs, classes,
+  inline event handlers, data, selectors, and logic so the prototype
+  keeps the same appearance and behavior.
+  =============================================================
+-->
+
+<style>
+:root{
+  --indigo-950:#141B2E;
+  --indigo-900:#1B2540;
+  --indigo-800:#243158;
+  --indigo-700:#33437A;
+  --saffron:#E3941E;
+  --saffron-light:#F3C878;
+  --sage:#7C9885;
+  --sage-light:#C9D8CC;
+  --paper:#F3EFE4;
+  --paper-dim:#E7E1D0;
+  --ink:#1E2233;
+  --ink-soft:#565B6E;
+  --line:#D8D2BF;
+  --white:#FFFDF8;
+  --danger:#B4472A;
+  --radius-card:3px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:'IBM Plex Sans',sans-serif;
+  font-size:15px;
+  line-height:1.5;
+  min-height:100vh;
+}
+h1,h2,h3,h4{font-family:'Fraunces',serif;font-weight:600;margin:0;color:var(--indigo-950);}
+.mono{font-family:'IBM Plex Mono',monospace;}
+button{font-family:inherit;cursor:pointer;}
+input,select,textarea{font-family:inherit;font-size:14px;}
+
+/* =========================================================
+   APP SHELL
+   Edit here for the global page layout, top navigation, branding,
+   language toggle, and connection-status indicator.
+========================================================= */
+#app{display:flex;flex-direction:column;min-height:100vh;}
+
+.topbar{
+  background:var(--indigo-950);
+  color:var(--paper);
+  padding:14px 28px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  border-bottom:3px solid var(--saffron);
+}
+.brand{display:flex;align-items:baseline;gap:10px;}
+.brand .mark{
+  width:30px;height:30px;border-radius:50%;
+  background:conic-gradient(var(--saffron) 0deg 120deg, var(--sage) 120deg 240deg, var(--indigo-700) 240deg 360deg);
+  flex-shrink:0;
+}
+.brand h1{color:var(--white);font-size:20px;letter-spacing:0.2px;}
+.brand span{color:var(--saffron-light);font-size:12px;font-family:'IBM Plex Mono',monospace;}
+.tabs{display:flex;gap:4px;}
+.tabs button{
+  background:transparent;border:1px solid transparent;color:var(--paper-dim);
+  padding:8px 16px;font-size:13.5px;font-weight:500;border-radius:2px;
+  transition:background .15s;
+}
+.tabs button.active{background:var(--indigo-800);color:var(--white);border-color:var(--indigo-700);}
+.tabs button:hover:not(.active){background:var(--indigo-900);}
+
+.topbar-right{display:flex;align-items:center;gap:14px;}
+.lang-toggle{display:flex;border:1px solid var(--indigo-700);border-radius:2px;overflow:hidden;}
+.lang-toggle button{background:var(--indigo-900);color:var(--paper-dim);border:none;padding:6px 11px;font-size:12px;}
+.lang-toggle button.on{background:var(--saffron);color:var(--indigo-950);font-weight:600;}
+.net-pill{font-size:11px;font-family:'IBM Plex Mono',monospace;padding:5px 10px;border-radius:20px;display:flex;align-items:center;gap:6px;background:var(--indigo-900);color:var(--sage-light);}
+.net-dot{width:7px;height:7px;border-radius:50%;background:var(--sage);}
+.net-pill.off .net-dot{background:var(--danger);}
+.net-pill.off{color:#E7B2A0;}
+
+main{flex:1;padding:26px 28px 40px;max-width:1400px;width:100%;margin:0 auto;}
+.view{display:none;}
+.view.active{display:block;}
+
+/* =========================================================
+   PATIENT INTAKE WIZARD
+   Edit here for the stepper, form fields, selectable chips,
+   follow-up questions, severity controls, and navigation buttons.
+========================================================= */
+.wizard-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;}
+.wizard-head p{color:var(--ink-soft);margin-top:6px;max-width:560px;font-size:13.5px;}
+.steps{display:flex;gap:0;margin-bottom:26px;border-bottom:1px solid var(--line);}
+.step{
+  padding:10px 0;margin-right:34px;font-size:13px;font-weight:600;color:var(--ink-soft);
+  border-bottom:2px solid transparent;position:relative;top:1px;
+}
+.step .num{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:20px;height:20px;border-radius:50%;background:var(--paper-dim);color:var(--ink-soft);
+  font-size:11px;margin-right:8px;font-family:'IBM Plex Mono',monospace;
+}
+.step.active{color:var(--indigo-950);border-bottom-color:var(--saffron);}
+.step.active .num{background:var(--saffron);color:var(--indigo-950);}
+.step.done .num{background:var(--sage);color:var(--white);}
+
+.card{
+  background:var(--white);
+  border:1px solid var(--line);
+  border-radius:var(--radius-card);
+  padding:26px 28px;
+}
+.stepper-panel{display:none;}
+.stepper-panel.active{display:block;}
+
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:16px;}
+.field{display:flex;flex-direction:column;gap:6px;}
+.field.full{grid-column:1/-1;}
+.field label{font-size:12.5px;font-weight:600;color:var(--indigo-900);}
+.field .hint{font-size:11.5px;color:var(--ink-soft);font-weight:400;}
+.field input[type=text],.field input[type=number],.field select,.field textarea{
+  border:1px solid var(--line);border-radius:2px;padding:9px 11px;background:var(--paper);color:var(--ink);
+}
+.field textarea{resize:vertical;min-height:64px;}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--saffron);outline-offset:1px;}
+
+.chip-group{display:flex;flex-wrap:wrap;gap:8px;}
+.chip{
+  border:1px solid var(--line);background:var(--paper);color:var(--ink);
+  padding:7px 13px;border-radius:20px;font-size:12.5px;font-weight:500;user-select:none;
+}
+.chip.selected{background:var(--indigo-950);border-color:var(--indigo-950);color:var(--white);}
+.chip.complaint{padding:10px 16px;font-size:13.5px;}
+
+.severity-row{display:flex;align-items:center;gap:14px;}
+.severity-row input[type=range]{flex:1;accent-color:var(--saffron);}
+.severity-val{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:14px;width:26px;text-align:center;}
+
+.followup-box{
+  margin-top:18px;padding:16px 18px;background:var(--paper);border-left:3px solid var(--sage);
+  border-radius:2px;
+}
+.followup-box h4{font-size:12.5px;text-transform:none;color:var(--indigo-900);margin-bottom:10px;}
+
+.wizard-nav{display:flex;justify-content:space-between;margin-top:24px;}
+.btn{
+  border:none;border-radius:2px;padding:11px 22px;font-size:13.5px;font-weight:600;
+}
+.btn-primary{background:var(--indigo-950);color:var(--white);}
+.btn-primary:hover{background:var(--indigo-800);}
+.btn-secondary{background:transparent;color:var(--indigo-950);border:1px solid var(--line);}
+.btn-secondary:hover{background:var(--paper-dim);}
+.btn-accent{background:var(--saffron);color:var(--indigo-950);}
+.btn-accent:hover{background:var(--saffron-light);}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-sm{padding:6px 12px;font-size:12px;}
+
+/* =========================================================
+   DOCTOR DASHBOARD
+   Edit here for the OPD queue, patient panel, dashboard tabs,
+   dictation bar, clinical tables, and assessment displays.
+========================================================= */
+.dash-grid{display:grid;grid-template-columns:300px 1fr;gap:22px;}
+.queue-panel{background:var(--white);border:1px solid var(--line);border-radius:var(--radius-card);overflow:hidden;height:fit-content;}
+.queue-head{padding:14px 16px;background:var(--indigo-950);color:var(--white);display:flex;justify-content:space-between;align-items:center;}
+.queue-head h3{color:var(--white);font-size:14px;}
+.queue-head span{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--saffron-light);}
+.queue-item{
+  padding:13px 16px;border-bottom:1px solid var(--line);cursor:pointer;
+  display:flex;flex-direction:column;gap:3px;
+}
+.queue-item:hover{background:var(--paper);}
+.queue-item.active{background:var(--paper-dim);border-left:3px solid var(--saffron);}
+.qi-top{display:flex;justify-content:space-between;font-size:13.5px;font-weight:600;}
+.qi-meta{font-size:11.5px;color:var(--ink-soft);}
+.qi-tag{
+  display:inline-block;margin-top:4px;font-size:10.5px;padding:2px 7px;border-radius:10px;
+  background:var(--sage-light);color:var(--indigo-900);width:fit-content;font-weight:600;
+}
+.qi-tag.urgent{background:#F0C6BA;color:var(--danger);}
+
+.kpi-strip{display:flex;gap:14px;padding:12px 16px;background:var(--paper-dim);border-top:1px solid var(--line);flex-wrap:wrap;}
+.kpi{font-size:11px;color:var(--ink-soft);}
+.kpi b{display:block;font-family:'IBM Plex Mono',monospace;font-size:17px;color:var(--indigo-950);}
+
+.patient-panel{background:var(--white);border:1px solid var(--line);border-radius:var(--radius-card);}
+.pp-head{padding:20px 24px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start;}
+.pp-head h2{font-size:22px;}
+.pp-sub{color:var(--ink-soft);font-size:13px;margin-top:4px;}
+.pp-badges{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;}
+.badge{font-size:11px;padding:3px 9px;border-radius:12px;background:var(--paper-dim);color:var(--indigo-900);font-weight:600;}
+
+.dictate-bar{
+  display:flex;align-items:center;gap:12px;padding:14px 24px;background:var(--indigo-950);color:var(--paper);
+}
+.mic-btn{
+  width:38px;height:38px;border-radius:50%;background:var(--saffron);border:none;color:var(--indigo-950);
+  font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.mic-btn.recording{animation:pulse 1.1s infinite;background:var(--danger);color:var(--white);}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(180,71,42,.55);}70%{box-shadow:0 0 0 12px rgba(180,71,42,0);}100%{box-shadow:0 0 0 0 rgba(180,71,42,0);}}
+.dictate-status{font-size:13px;color:var(--paper-dim);flex:1;}
+.dictate-status b{color:var(--saffron-light);}
+
+.pp-tabs{display:flex;gap:2px;padding:0 24px;background:var(--paper-dim);border-bottom:1px solid var(--line);}
+.pp-tab{padding:12px 16px;font-size:12.5px;font-weight:600;color:var(--ink-soft);border-bottom:2px solid transparent;background:transparent;border-top:none;border-left:none;border-right:none;}
+.pp-tab.active{color:var(--indigo-950);border-bottom-color:var(--saffron);}
+.pp-body{padding:22px 24px;}
+.pp-panel{display:none;}
+.pp-panel.active{display:block;}
+
+.section-title{font-size:12px;text-transform:uppercase;letter-spacing:0.6px;color:var(--sage);font-weight:700;margin:0 0 12px;}
+.subsection{margin-bottom:24px;}
+.captured{border:1px dashed var(--sage);background:#F3F7F3;padding:3px 8px;border-radius:2px;font-size:11.5px;color:var(--indigo-900);display:inline-flex;align-items:center;gap:5px;}
+.captured::before{content:"◎";color:var(--sage);}
+
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+
+.dosha-meter{display:flex;flex-direction:column;gap:4px;}
+.dosha-row{display:flex;align-items:center;gap:10px;font-size:12.5px;}
+.dosha-row .label{width:60px;font-weight:600;}
+.dosha-track{flex:1;height:9px;background:var(--paper-dim);border-radius:6px;overflow:hidden;}
+.dosha-fill{height:100%;}
+.fill-vata{background:#8CA6C9;}
+.fill-pitta{background:var(--saffron);}
+.fill-kapha{background:var(--sage);}
+.dosha-row .val{font-family:'IBM Plex Mono',monospace;width:28px;text-align:right;}
+
+.pariksha-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+.pariksha-table td{padding:8px 6px;border-bottom:1px solid var(--line);}
+.pariksha-table td:first-child{color:var(--ink-soft);width:130px;font-weight:600;}
+
+.gen-btn-wrap{padding:18px 24px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px;background:var(--paper);}
+
+/* =========================================================
+   GENERATED CASE SHEET & OVERLAY
+   Edit here for the generated record modal, export/sync controls,
+   empty states, and toast notification appearance.
+========================================================= */
+.sheet-overlay{position:fixed;inset:0;background:rgba(20,27,46,.55);display:none;align-items:flex-start;justify-content:center;padding:30px;overflow:auto;z-index:50;}
+.sheet-overlay.open{display:flex;}
+.sheet{background:var(--white);max-width:840px;width:100%;border-radius:3px;box-shadow:0 20px 60px rgba(0,0,0,.3);}
+.sheet-head{background:var(--indigo-950);color:var(--white);padding:22px 30px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;align-items:flex-start;}
+.sheet-head h2{color:var(--white);font-size:20px;}
+.sheet-head p{color:var(--saffron-light);font-size:12px;margin-top:4px;font-family:'IBM Plex Mono',monospace;}
+.sheet-close{background:transparent;border:1px solid var(--indigo-700);color:var(--paper-dim);border-radius:2px;padding:6px 12px;font-size:12px;}
+.sheet-body{padding:26px 30px;}
+.sheet-block{margin-bottom:22px;}
+.sheet-block h3{font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--sage);border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:10px;}
+.sheet-block .row{display:flex;font-size:13px;margin-bottom:6px;}
+.sheet-block .row .k{width:180px;color:var(--ink-soft);flex-shrink:0;}
+.sheet-block .row .v{color:var(--ink);font-weight:500;}
+.sheet-footer{padding:16px 30px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;}
+.sheet-footer .abha{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-soft);}
+
+.empty-state{padding:60px 20px;text-align:center;color:var(--ink-soft);}
+.empty-state h3{color:var(--indigo-900);margin-bottom:8px;}
+
+.toast{
+  position:fixed;bottom:24px;right:24px;background:var(--indigo-950);color:var(--white);
+  padding:13px 20px;border-radius:2px;font-size:13px;border-left:3px solid var(--saffron);
+  box-shadow:0 8px 24px rgba(0,0,0,.25);display:none;z-index:60;max-width:320px;
+}
+.toast.show{display:block;}
+
+/* =========================================================
+   RESPONSIVE LAYOUT
+   Mobile/tablet layout adjustments. These rules intentionally retain
+   the original breakpoint and styling behavior.
+========================================================= */
+@media (max-width:900px){
+  .dash-grid{grid-template-columns:1fr;}
+  .field-row,.grid3,.grid2{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="mark"></div>
+      <div>
+        <h1>AarogyaCase</h1>
+        <span>Patient Case-Taking Software · AIIA / Ministry of Ayush · SIH 2026 · PS 26047</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="tabs">
+        <button class="active" data-tab="intake" onclick="switchTab('intake')">Patient Intake</button>
+        <button data-tab="doctor" onclick="switchTab('doctor')">Doctor Dashboard</button>
+      </div>
+      <div class="lang-toggle">
+        <button class="on" id="lang-en" onclick="setLang('en')">EN</button>
+        <button id="lang-hi" onclick="setLang('hi')">हिं</button>
+      </div>
+      <div class="net-pill" id="netPill" onclick="toggleNet()">
+        <span class="net-dot"></span><span id="netLabel">Synced</span>
+      </div>
+    </div>
+  </div>
+
+  <main>
+
+    <!-- =========================================================
+     PATIENT INTAKE VIEW
+     Four-step patient form. IDs are used directly by the JavaScript.
+========================================================= -->
+    <section class="view active" id="view-intake">
+      <div class="wizard-head">
+        <div>
+          <h2 id="i-title">New patient — case intake</h2>
+          <p id="i-sub">Fill this in while waiting. It goes straight to the doctor's screen so consultation time is spent on you, not on typing.</p>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="fillDemo()">Fill demo answers</button>
+      </div>
+
+      <div class="steps" id="steps">
+        <div class="step active" data-step="1"><span class="num">1</span>Basic details</div>
+        <div class="step" data-step="2"><span class="num">2</span>Chief complaint</div>
+        <div class="step" data-step="3"><span class="num">3</span>History</div>
+        <div class="step" data-step="4"><span class="num">4</span>Review &amp; submit</div>
+      </div>
+
+      <div class="card">
+
+        <!-- STEP 1: BASIC PATIENT DETAILS -->
+        <div class="stepper-panel active" data-panel="1">
+          <div class="field-row">
+            <div class="field"><label>Full name</label><input type="text" id="f-name" placeholder="e.g. Meena Kumari"></div>
+            <div class="field"><label>Age</label><input type="number" id="f-age" placeholder="e.g. 42"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Sex</label>
+              <select id="f-sex"><option>Female</option><option>Male</option><option>Other</option></select>
+            </div>
+            <div class="field"><label>Contact number</label><input type="text" id="f-phone" placeholder="10-digit mobile"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>ABHA ID <span class="hint">(optional — for record linking)</span></label><input type="text" id="f-abha" placeholder="14-digit ABHA number"></div>
+            <div class="field"><label>Occupation</label><input type="text" id="f-occ" placeholder="e.g. Farmer, homemaker, driver"></div>
+          </div>
+        </div>
+
+        <!-- STEP 2: CHIEF COMPLAINT & DYNAMIC FOLLOW-UPS -->
+        <div class="stepper-panel" data-panel="2">
+          <div class="field full" style="margin-bottom:18px;">
+            <label>What is bothering you most today? <span class="hint">Select the closest match — this shapes the follow-up questions</span></label>
+            <div class="chip-group" id="complaint-chips"></div>
+          </div>
+          <div id="followup-area"></div>
+        </div>
+
+        <!-- STEP 3: MEDICAL, ALLERGY & FAMILY HISTORY -->
+        <div class="stepper-panel" data-panel="3">
+          <div class="field full" style="margin-bottom:16px;">
+            <label>Past medical / surgical history <span class="hint">tap any that apply</span></label>
+            <div class="chip-group" id="pmh-chips"></div>
+          </div>
+          <div class="field full" style="margin-bottom:16px;">
+            <label>Known drug allergies / reactions</label>
+            <div class="chip-group" id="allergy-chips"></div>
+          </div>
+          <div class="field-row">
+            <div class="field full"><label>Current medications <span class="hint">(name, dose, frequency if known)</span></label>
+              <textarea id="f-meds" placeholder="e.g. Metformin 500mg twice daily"></textarea>
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field full"><label>Family history of illness</label>
+              <textarea id="f-family" placeholder="e.g. Father — diabetes; Mother — hypertension"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 4: REVIEW BEFORE SUBMISSION -->
+        <div class="stepper-panel" data-panel="4">
+          <div id="review-box"></div>
+          <p class="hint" style="margin-top:10px;">Submitting adds you to the doctor's live queue with this summary pre-filled — the doctor will still confirm everything with you directly.</p>
+        </div>
+
+        <div class="wizard-nav">
+          <button class="btn btn-secondary" id="btn-back" onclick="stepBack()">Back</button>
+          <button class="btn btn-primary" id="btn-next" onclick="stepNext()">Continue</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- =========================================================
+     DOCTOR DASHBOARD VIEW
+     Queue and selected-patient details are rendered dynamically.
+========================================================= -->
+    <section class="view" id="view-doctor">
+      <div class="dash-grid">
+        <div class="queue-panel">
+          <div class="queue-head"><h3>OPD Queue</h3><span id="queueCount">0 waiting</span></div>
+          <div id="queueList"></div>
+          <div class="kpi-strip">
+            <div class="kpi">Avg. history time<b id="kpiTime">3.1 min</b></div>
+            <div class="kpi">Baseline (paper)<b>11–14 min</b></div>
+          </div>
+        </div>
+
+        <div id="patientPanelWrap"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- =========================================================
+     GENERATED CASE SHEET MODAL
+========================================================= -->
+<div class="sheet-overlay" id="sheetOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <div>
+        <h2>Case Sheet — Generated Record</h2>
+        <p id="sheetMeta">—</p>
+      </div>
+      <button class="sheet-close" onclick="closeSheet()">Close ✕</button>
+    </div>
+    <div class="sheet-body" id="sheetBody"></div>
+    <div class="sheet-footer">
+      <span class="abha" id="sheetAbha">ABDM sync: pending</span>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-secondary btn-sm" onclick="toast('Case sheet exported as PDF (demo)')">Export PDF</button>
+        <button class="btn btn-accent btn-sm" onclick="toast('Pushed to ABDM health locker (demo)')">Sync to ABHA</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- =========================================================
+     GLOBAL TOAST NOTIFICATION
+========================================================= -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   DATA MODEL & APPLICATION STATE
+
+   Central source of truth for complaint definitions, selectable
+   history options, patient queue state, wizard state, and UI state.
+========================================================= */
+const COMPLAINTS = [
+  {id:'joint', label:'Joint pain / stiffness', followups:['Which joints?','Worse in morning or evening?','Swelling present?'], ayur:'Suspected Amavata (Sandhigata Vata pattern)'},
+  {id:'acidity', label:'Acidity / burning in stomach', followups:['Relation to meals?','Sour belching?','Worse with spicy food?'], ayur:'Suspected Amlapitta'},
+  {id:'headache', label:'Headache', followups:['One-sided or whole head?','Triggers (light, stress, sleep loss)?','Associated nausea?'], ayur:'Suspected Shirahshoola (Vata-Pitta pattern)'},
+  {id:'fever', label:'Fever', followups:['Duration of fever?','Pattern — continuous or with chills?','Associated symptoms?'], ayur:'Jwara — cause &amp; pattern to be established'},
+  {id:'digestion', label:'Poor digestion / bloating', followups:['After which meals?','Stool pattern?','Appetite level?'], ayur:'Suspected Agnimandya (weak digestive fire)'},
+  {id:'skin', label:'Skin rash / itching', followups:['Location and spread?','Triggered by food or season?','Duration?'], ayur:'Suspected Kushtha — Pitta/Kapha involvement'},
+  {id:'other', label:'Something else', followups:['Please describe in your own words'], ayur:'To be classified after history'},
+];
+const PMH_OPTIONS = ['Diabetes','Hypertension','Thyroid disorder','Asthma','Tuberculosis (past)','Surgery — abdominal','Surgery — orthopedic','None'];
+const ALLERGY_OPTIONS = ['Penicillin','Sulfa drugs','NSAIDs','Food allergy','No known allergy'];
+
+let queue = [];
+let selectedId = null;
+let currentStep = 1;
+let intake = {complaint:null, followups:{}, severity:5, duration:'', pmh:[], allergy:[], meds:'', family:''};
+let netOnline = true;
+let lang = 'en';
+let pid = 1000;
+
+/* =========================================================
+   PATIENT INTAKE WIZARD LOGIC
+
+   Start here to edit complaint chips, follow-up questions, history
+   selection, wizard navigation, review generation, and submission.
+========================================================= */
+/* Render the selectable chief-complaint chips. */
+function renderComplaintChips(){
+  const box = document.getElementById('complaint-chips');
+  box.innerHTML = COMPLAINTS.map(c=>`<div class="chip complaint ${intake.complaint===c.id?'selected':''}" onclick="pickComplaint('${c.id}')">${c.label}</div>`).join('');
+}
+/* Store the selected complaint and rebuild its follow-up fields. */
+function pickComplaint(id){
+  intake.complaint = id;
+  intake.followups = {};
+  renderComplaintChips();
+  renderFollowups();
+}
+/* Render follow-up questions dynamically for the selected complaint. */
+function renderFollowups(){
+  const area = document.getElementById('followup-area');
+  const c = COMPLAINTS.find(x=>x.id===intake.complaint);
+  if(!c){ area.innerHTML=''; return; }
+  area.innerHTML = `
+    <div class="followup-box">
+      <h4>Follow-up questions for: ${c.label}</h4>
+      ${c.followups.map((q,i)=>`
+        <div class="field" style="margin-bottom:12px;">
+          <label>${q}</label>
+          <input type="text" data-fu="${i}" value="${intake.followups[i]||''}" oninput="intake.followups[${i}]=this.value" placeholder="Type answer...">
+        </div>`).join('')}
+      <div class="field-row" style="margin-top:6px;">
+        <div class="field"><label>Duration of complaint</label>
+          <select id="f-duration" onchange="intake.duration=this.value">
+            <option value="">Select</option>
+            <option>Less than 3 days</option><option>3 days – 2 weeks</option>
+            <option>2 weeks – 3 months</option><option>More than 3 months</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Severity (0 = mild, 10 = worst ever)</label>
+          <div class="severity-row">
+            <input type="range" min="0" max="10" value="${intake.severity}" oninput="intake.severity=this.value;document.getElementById('sevVal').textContent=this.value">
+            <span class="severity-val" id="sevVal">${intake.severity}</span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+/* Render a reusable selectable chip group. */
+function renderChipSet(containerId, options, arrRef){
+  const box = document.getElementById(containerId);
+  box.innerHTML = options.map(o=>`<div class="chip ${arrRef.includes(o)?'selected':''}" onclick="toggleChip('${containerId}','${o}')">${o}</div>`).join('');
+}
+/* Toggle one medical-history or allergy option and refresh its group. */
+function toggleChip(containerId, val){
+  const arr = containerId==='pmh-chips' ? intake.pmh : intake.allergy;
+  const idx = arr.indexOf(val);
+  if(idx>-1) arr.splice(idx,1); else arr.push(val);
+  if(containerId==='pmh-chips') renderChipSet('pmh-chips', PMH_OPTIONS, intake.pmh);
+  else renderChipSet('allergy-chips', ALLERGY_OPTIONS, intake.allergy);
+}
+
+/* Move forward through the wizard or submit on the final step. */
+function stepNext(){
+  if(currentStep===2 && !intake.complaint){ toast('Please select a chief complaint to continue'); return; }
+  if(currentStep<4){ currentStep++; renderStep(); }
+  else submitIntake();
+}
+/* Move one step backward through the intake wizard. */
+function stepBack(){ if(currentStep>1){ currentStep--; renderStep(); } }
+
+/* Synchronize visible wizard panels, step indicators, and navigation controls. */
+function renderStep(){
+  document.querySelectorAll('.step').forEach(s=>{
+    const n = +s.dataset.step;
+    s.classList.toggle('active', n===currentStep);
+    s.classList.toggle('done', n<currentStep);
+  });
+  document.querySelectorAll('.stepper-panel').forEach(p=>{
+    p.classList.toggle('active', +p.dataset.panel===currentStep);
+  });
+  document.getElementById('btn-back').disabled = currentStep===1;
+  document.getElementById('btn-next').textContent = currentStep===4 ? 'Submit to doctor queue' : 'Continue';
+  if(currentStep===4) renderReview();
+}
+
+/* Build the final intake review from the current form and intake state. */
+function renderReview(){
+  const c = COMPLAINTS.find(x=>x.id===intake.complaint);
+  const box = document.getElementById('review-box');
+  box.innerHTML = `
+    <div class="subsection">
+      <div class="section-title">Basic details</div>
+      <div class="pariksha-table"><table style="width:100%">
+        <tr><td>Name</td><td>${val('f-name')}</td></tr>
+        <tr><td>Age / Sex</td><td>${val('f-age')} / ${val('f-sex')}</td></tr>
+        <tr><td>Contact</td><td>${val('f-phone')||'—'}</td></tr>
+        <tr><td>ABHA ID</td><td>${val('f-abha')||'Not linked'}</td></tr>
+      </table></div>
+    </div>
+    <div class="subsection">
+      <div class="section-title">Chief complaint</div>
+      <div class="pariksha-table"><table style="width:100%">
+        <tr><td>Complaint</td><td>${c?c.label:'—'}</td></tr>
+        <tr><td>Duration</td><td>${intake.duration||'—'}</td></tr>
+        <tr><td>Severity</td><td>${intake.severity} / 10</td></tr>
+        ${c?c.followups.map((q,i)=>`<tr><td>${q}</td><td>${intake.followups[i]||'—'}</td></tr>`).join(''):''}
+      </table></div>
+    </div>
+    <div class="subsection">
+      <div class="section-title">History</div>
+      <div class="pariksha-table"><table style="width:100%">
+        <tr><td>Past history</td><td>${intake.pmh.length?intake.pmh.join(', '):'None reported'}</td></tr>
+        <tr><td>Allergies</td><td>${intake.allergy.length?intake.allergy.join(', '):'None reported'}</td></tr>
+        <tr><td>Medications</td><td>${val('f-meds')||'—'}</td></tr>
+        <tr><td>Family history</td><td>${val('f-family')||'—'}</td></tr>
+      </table></div>
+    </div>`;
+}
+/* Safely read the value of a form field by ID. */
+function val(id){ const e=document.getElementById(id); return e?e.value:''; }
+
+/* Convert the completed intake into a patient object and add it to the queue. */
+function submitIntake(){
+  const c = COMPLAINTS.find(x=>x.id===intake.complaint);
+  pid++;
+  const patient = {
+    id: pid,
+    name: val('f-name')||'Unnamed patient',
+    age: val('f-age')||'—',
+    sex: val('f-sex'),
+    phone: val('f-phone'),
+    abha: val('f-abha'),
+    occupation: val('f-occ'),
+    complaint: c,
+    followups: {...intake.followups},
+    duration: intake.duration,
+    severity: intake.severity,
+    pmh: [...intake.pmh],
+    allergy: [...intake.allergy],
+    meds: val('f-meds'),
+    family: val('f-family'),
+    waitSince: new Date(),
+    dictated: false,
+    ayur: {
+      vata:40, pitta:35, kapha:25,
+      nadi:'', jihva:'Not examined', mutra:'Not examined', mala:'Not examined',
+      nidana:'', samprapti:'', prakriti:'To be assessed'
+    },
+    status:'waiting'
+  };
+  queue.push(patient);
+  resetIntake();
+  renderQueue();
+  toast(`${patient.name} added to doctor's queue`);
+  switchTab('doctor');
+  selectPatient(patient.id);
+}
+/* Reset all intake state and fields after a successful submission. */
+function resetIntake(){
+  intake = {complaint:null, followups:{}, severity:5, duration:'', pmh:[], allergy:[], meds:'', family:''};
+  currentStep = 1;
+  ['f-name','f-age','f-phone','f-abha','f-occ','f-meds','f-family'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
+  renderComplaintChips(); renderFollowups();
+  renderChipSet('pmh-chips', PMH_OPTIONS, intake.pmh);
+  renderChipSet('allergy-chips', ALLERGY_OPTIONS, intake.allergy);
+  renderStep();
+}
+/* Populate the intake form with one of the built-in demo patient scenarios. */
+function fillDemo(){
+  const demos = [
+    {name:'Meena Kumari', age:42, sex:'Female', complaint:'joint', fu:['Both knees and fingers','Worse in the morning, improves through the day','Mild swelling, both knees'], dur:'2 weeks – 3 months', sev:7, pmh:['Thyroid disorder'], all:['No known allergy'], meds:'Levothyroxine 50mcg once daily', fam:'Mother — joint pain in old age'},
+    {name:'Ramesh Yadav', age:34, sex:'Male', complaint:'acidity', fu:['Worse 1–2 hours after meals','Yes, frequent sour belching','Yes, especially with fried/spicy food'], dur:'3 days – 2 weeks', sev:5, pmh:['None'], all:['NSAIDs'], meds:'None currently', fam:'No significant family history'},
+  ];
+  const d = demos[Math.floor(Math.random()*demos.length)];
+  document.getElementById('f-name').value=d.name;
+  document.getElementById('f-age').value=d.age;
+  document.getElementById('f-sex').value=d.sex;
+  document.getElementById('f-phone').value='98'+Math.floor(10000000+Math.random()*89999999);
+  pickComplaint(d.complaint);
+  d.fu.forEach((v,i)=>intake.followups[i]=v);
+  intake.duration=d.dur; intake.severity=d.sev;
+  intake.pmh=[...d.pmh]; intake.allergy=[...d.all];
+  renderFollowups();
+  document.getElementById('f-duration').value=d.dur;
+  document.getElementById('sevVal').textContent=d.sev;
+  renderChipSet('pmh-chips', PMH_OPTIONS, intake.pmh);
+  renderChipSet('allergy-chips', ALLERGY_OPTIONS, intake.allergy);
+  document.getElementById('f-meds').value=d.meds;
+  document.getElementById('f-family').value=d.fam;
+  toast('Demo answers filled — continue through the steps');
+}
+
+/* =========================================================
+   DOCTOR DASHBOARD LOGIC
+
+   Start here to edit queue rendering, patient selection, dashboard
+   tabs, clinical summaries, Ayurvedic assessment, and dictation.
+========================================================= */
+/* Render the OPD queue and refresh the selected patient's detail panel. */
+function renderQueue(){
+  const list = document.getElementById('queueList');
+  document.getElementById('queueCount').textContent = queue.filter(p=>p.status==='waiting').length + ' waiting';
+  if(queue.length===0){
+    list.innerHTML = `<div style="padding:20px;font-size:12.5px;color:var(--ink-soft);">No patients yet. Submit a patient from the Intake tab.</div>`;
+  } else {
+    list.innerHTML = queue.map(p=>`
+      <div class="queue-item ${p.id===selectedId?'active':''}" onclick="selectPatient(${p.id})">
+        <div class="qi-top"><span>${p.name}</span><span class="mono" style="font-size:11px;color:var(--ink-soft)">${waitTime(p.waitSince)}</span></div>
+        <div class="qi-meta">${p.age}${p.sex[0]} · ${p.complaint?p.complaint.label:'—'}</div>
+        <div class="qi-tag ${p.severity>=7?'urgent':''}">${p.severity>=7?'High severity':(p.status==='done'?'Case sheet ready':'Pre-filled ✓')}</div>
+      </div>`).join('');
+  }
+  renderPatientPanel();
+}
+/* Format a patient's waiting time for display in the queue. */
+function waitTime(since){
+  const mins = Math.max(1, Math.round((Date.now()-since.getTime())/60000));
+  return mins+' min';
+}
+/* Select a patient and refresh all queue/dashboard state. */
+function selectPatient(id){ selectedId = id; document.getElementById('activePPTab') && (document.getElementById('activePPTab').dataset.t='modern'); renderQueue(); }
+
+/* Build the complete dashboard panel for the currently selected patient. */
+function renderPatientPanel(){
+  const wrap = document.getElementById('patientPanelWrap');
+  const p = queue.find(x=>x.id===selectedId);
+  if(!p){
+    wrap.innerHTML = `<div class="patient-panel"><div class="empty-state"><h3>No patient selected</h3><p>Choose a patient from the queue on the left.</p></div></div>`;
+    return;
+  }
+  wrap.innerHTML = `
+    <div class="patient-panel">
+      <div class="pp-head">
+        <div>
+          <h2>${p.name}</h2>
+          <div class="pp-sub">${p.age} yrs · ${p.sex} · ${p.occupation||'Occupation not recorded'} · ${p.abha?('ABHA '+p.abha):'ABHA not linked'}</div>
+          <div class="pp-badges">
+            <span class="badge">${p.complaint?p.complaint.label:'No complaint'}</span>
+            <span class="badge">Duration: ${p.duration||'—'}</span>
+            <span class="badge">Severity ${p.severity}/10</span>
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="toast('Previous visit history: none on file (first visit)')">View past visits</button>
+      </div>
+
+      <div class="dictate-bar">
+        <button class="mic-btn ${p.recording?'recording':''}" onclick="toggleDictation(${p.id})">🎙</button>
+        <div class="dictate-status">${p.recording ? '<b>Listening…</b> speak naturally during examination, structured fields fill automatically' : (p.dictated ? '<b>Captured</b> — clinical notes extracted below (tap 🎙 to add more)' : 'Tap the mic during Prashna / examination — speech is converted into structured fields, not free text you have to type')}</div>
+      </div>
+
+      <div class="pp-tabs">
+        <button class="pp-tab active" data-tab="modern" onclick="switchPPTab(this,'modern')">Clinical History</button>
+        <button class="pp-tab" data-tab="ayur" onclick="switchPPTab(this,'ayur')">Ayurvedic Assessment</button>
+        <button class="pp-tab" data-tab="notes" onclick="switchPPTab(this,'notes')">Examination Notes</button>
+      </div>
+
+      <div class="pp-body">
+        <div class="pp-panel active" data-panel="modern">
+          <div class="subsection">
+            <div class="section-title">Presenting complaint (from intake)</div>
+            <div class="pariksha-table"><table style="width:100%">
+              <tr><td>Chief complaint</td><td>${p.complaint?p.complaint.label:'—'}</td></tr>
+              ${p.complaint?p.complaint.followups.map((q,i)=>`<tr><td>${q}</td><td>${p.followups[i]||'—'}</td></tr>`).join(''):''}
+            </table></div>
+          </div>
+          <div class="subsection">
+            <div class="section-title">Past / drug / allergy / family history</div>
+            <div class="pariksha-table"><table style="width:100%">
+              <tr><td>Past history</td><td>${p.pmh.length?p.pmh.join(', '):'None reported'}</td></tr>
+              <tr><td>Allergies</td><td>${p.allergy.length?p.allergy.join(', '):'None reported'}</td></tr>
+              <tr><td>Current meds</td><td>${p.meds||'—'}</td></tr>
+              <tr><td>Family history</td><td>${p.family||'—'}</td></tr>
+            </table></div>
+          </div>
+          <div class="subsection">
+            <div class="section-title">Provisional impression <span style="color:var(--ink-soft);font-weight:400;text-transform:none;">(ICD-11 TM2-mapped)</span></div>
+            <div class="pariksha-table"><table style="width:100%">
+              <tr><td>Working diagnosis</td><td>${p.complaint?p.complaint.ayur:'Pending'}</td></tr>
+              <tr><td>ICD-11 TM2 code</td><td class="mono">${tm2Code(p.complaint?p.complaint.id:'')}</td></tr>
+            </table></div>
+          </div>
+        </div>
+
+        <div class="pp-panel" data-panel="ayur">
+          <div class="subsection">
+            <div class="section-title">Prakriti / Dosha assessment</div>
+            <div class="dosha-meter">
+              <div class="dosha-row"><span class="label">Vata</span><div class="dosha-track"><div class="dosha-fill fill-vata" style="width:${p.ayur.vata}%"></div></div><span class="val mono">${p.ayur.vata}%</span></div>
+              <div class="dosha-row"><span class="label">Pitta</span><div class="dosha-track"><div class="dosha-fill fill-pitta" style="width:${p.ayur.pitta}%"></div></div><span class="val mono">${p.ayur.pitta}%</span></div>
+              <div class="dosha-row"><span class="label">Kapha</span><div class="dosha-track"><div class="dosha-fill fill-kapha" style="width:${p.ayur.kapha}%"></div></div><span class="val mono">${p.ayur.kapha}%</span></div>
+            </div>
+          </div>
+          <div class="subsection">
+            <div class="section-title">Ashtavidha Pariksha (eight-fold examination)</div>
+            <div class="pariksha-table"><table style="width:100%">
+              <tr><td>Nadi (pulse)</td><td>${p.ayur.nadi || '<span class="hint">Not yet recorded — use dictation during exam</span>'}</td></tr>
+              <tr><td>Jihva (tongue)</td><td>${p.ayur.jihva}</td></tr>
+              <tr><td>Mutra (urine)</td><td>${p.ayur.mutra}</td></tr>
+              <tr><td>Mala (stool)</td><td>${p.ayur.mala}</td></tr>
+            </table></div>
+          </div>
+          <div class="subsection">
+            <div class="section-title">Nidana Panchaka (five-fold diagnosis)</div>
+            <div class="pariksha-table"><table style="width:100%">
+              <tr><td>Nidana (cause)</td><td>${p.ayur.nidana || '—'}</td></tr>
+              <tr><td>Samprapti (pathogenesis)</td><td>${p.ayur.samprapti || '—'}</td></tr>
+              <tr><td>Prakriti (constitution)</td><td>${p.ayur.prakriti}</td></tr>
+            </table></div>
+          </div>
+        </div>
+
+        <div class="pp-panel" data-panel="notes">
+          <div class="field full">
+            <label>Free-text examination notes ${p.dictated?'<span class="captured">captured from dictation</span>':''}</label>
+            <textarea style="min-height:140px;" id="exam-notes-${p.id}" oninput="p.notes=this.value">${p.notes||''}</textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="gen-btn-wrap">
+        <button class="btn btn-secondary" onclick="toast('Draft saved to patient record')">Save draft</button>
+        <button class="btn btn-accent" onclick="generateSheet(${p.id})">Generate case sheet →</button>
+      </div>
+    </div>`;
+}
+
+/* Switch between Clinical History, Ayurvedic Assessment, and Notes tabs. */
+function switchPPTab(el, key){
+  el.parentElement.querySelectorAll('.pp-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  const body = el.closest('.patient-panel').querySelector('.pp-body');
+  body.querySelectorAll('.pp-panel').forEach(p=>p.classList.toggle('active', p.dataset.panel===key));
+}
+
+/* Map a complaint ID to the prototype's ICD-11 TM2 display value. */
+function tm2Code(id){
+  const map = {joint:'TM2 SM60 · Amavata pattern', acidity:'TM2 SN80 · Amlapitta pattern', headache:'TM2 SL42 · Shirahshoola pattern', fever:'TM2 SP10 · Jwara pattern', digestion:'TM2 SN30 · Agnimandya pattern', skin:'TM2 SS21 · Kushtha pattern'};
+  return map[id] || 'Pending classification';
+}
+
+/* =========================================================
+   VOICE-ASSIST SIMULATION
+   Demo dictation data and the simulated recording workflow.
+========================================================= */
+const DICTATION_BANK = {
+  joint: {nadi:'Vata-predominant, irregular rhythm', jihva:'Dry, slightly coated at root', mutra:'Normal, pale yellow', mala:'Dry, tends toward constipation', nidana:'Cold food exposure, irregular meal timing, joint overuse', samprapti:'Vata vitiation lodging in Sandhi (joints) with Ama accumulation', notes:'Patient reports stiffness lasting ~45 min on waking, improves with movement. No fever. Mild peri-articular swelling in both knees, no redness. Gait mildly antalgic.'},
+  acidity: {nadi:'Pitta-predominant, rapid', jihva:'Red tip, thin yellow coating', mutra:'Yellowish, normal frequency', mala:'Loose, occasional', nidana:'Spicy/fried food, irregular meal gaps, stress', samprapti:'Pitta vitiation affecting Amashaya (stomach), Urdhvaga Amlapitta pattern', notes:'Burning sensation predominantly post-prandial, relieved transiently by cold milk. No blood in vomitus or stool reported. Mild epigastric tenderness on palpation.'},
+  headache: {nadi:'Vata-Pitta mixed', jihva:'Slightly dry, normal coating', mutra:'Normal', mala:'Normal', nidana:'Sleep disruption, screen exposure, skipped meals', samprapti:'Vata-Pitta vitiation ascending via Siras to head region', notes:'Unilateral throbbing pain, photophobia present, no aura reported. No focal neurological deficit on quick screening exam.'},
+};
+/* Simulate dictation and populate structured examination data. */
+function toggleDictation(id){
+  const p = queue.find(x=>x.id===id);
+  if(p.recording) return;
+  p.recording = true; renderPatientPanel();
+  setTimeout(()=>{
+    const key = p.complaint ? p.complaint.id : null;
+    const bank = DICTATION_BANK[key];
+    if(bank){
+      p.ayur.nadi = bank.nadi; p.ayur.jihva = bank.jihva; p.ayur.mutra = bank.mutra; p.ayur.mala = bank.mala;
+      p.ayur.nidana = bank.nidana; p.ayur.samprapti = bank.samprapti;
+      p.ayur.prakriti = bank.nadi.split(',')[0] + ' constitution (provisional)';
+      p.notes = (p.notes?p.notes+'\\n\\n':'') + bank.notes;
+    } else {
+      p.notes = (p.notes?p.notes+'\\n\\n':'') + 'General examination unremarkable. Vitals stable.';
+    }
+    p.recording = false; p.dictated = true;
+    renderQueue();
+    toast('Dictation captured — Ashtavidha Pariksha & notes auto-filled');
+  }, 2200);
+}
+
+/* =========================================================
+   CASE SHEET GENERATION
+   Builds the generated patient record and controls its modal.
+========================================================= */
+/* Generate and display the final case sheet for a patient. */
+function generateSheet(id){
+  const p = queue.find(x=>x.id===id);
+  p.status = 'done';
+  document.getElementById('sheetMeta').textContent = `Patient ID CS-${p.id} · Generated ${new Date().toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'})}`;
+  document.getElementById('sheetAbha').textContent = p.abha ? `ABDM sync: linked to ${p.abha}` : 'ABDM sync: no ABHA ID linked';
+  document.getElementById('sheetBody').innerHTML = `
+    <div class="sheet-block">
+      <h3>Patient</h3>
+      <div class="row"><div class="k">Name</div><div class="v">${p.name}</div></div>
+      <div class="row"><div class="k">Age / Sex</div><div class="v">${p.age} / ${p.sex}</div></div>
+      <div class="row"><div class="k">Occupation</div><div class="v">${p.occupation||'—'}</div></div>
+      <div class="row"><div class="k">Contact</div><div class="v">${p.phone||'—'}</div></div>
+    </div>
+    <div class="sheet-block">
+      <h3>Clinical history</h3>
+      <div class="row"><div class="k">Chief complaint</div><div class="v">${p.complaint?p.complaint.label:'—'} (${p.duration||'—'}, severity ${p.severity}/10)</div></div>
+      ${p.complaint?p.complaint.followups.map((q,i)=>`<div class="row"><div class="k">${q}</div><div class="v">${p.followups[i]||'—'}</div></div>`).join(''):''}
+      <div class="row"><div class="k">Past history</div><div class="v">${p.pmh.length?p.pmh.join(', '):'None reported'}</div></div>
+      <div class="row"><div class="k">Allergies</div><div class="v">${p.allergy.length?p.allergy.join(', '):'None reported'}</div></div>
+      <div class="row"><div class="k">Medications</div><div class="v">${p.meds||'—'}</div></div>
+      <div class="row"><div class="k">Family history</div><div class="v">${p.family||'—'}</div></div>
+    </div>
+    <div class="sheet-block">
+      <h3>Ayurvedic assessment</h3>
+      <div class="row"><div class="k">Dosha profile</div><div class="v">Vata ${p.ayur.vata}% · Pitta ${p.ayur.pitta}% · Kapha ${p.ayur.kapha}%</div></div>
+      <div class="row"><div class="k">Nadi</div><div class="v">${p.ayur.nadi||'—'}</div></div>
+      <div class="row"><div class="k">Jihva</div><div class="v">${p.ayur.jihva}</div></div>
+      <div class="row"><div class="k">Nidana</div><div class="v">${p.ayur.nidana||'—'}</div></div>
+      <div class="row"><div class="k">Samprapti</div><div class="v">${p.ayur.samprapti||'—'}</div></div>
+    </div>
+    <div class="sheet-block">
+      <h3>Impression</h3>
+      <div class="row"><div class="k">Working diagnosis</div><div class="v">${p.complaint?p.complaint.ayur:'—'}</div></div>
+      <div class="row"><div class="k">ICD-11 TM2 code</div><div class="v">${tm2Code(p.complaint?p.complaint.id:'')}</div></div>
+    </div>
+    <div class="sheet-block">
+      <h3>Examination notes</h3>
+      <div class="row"><div class="v" style="white-space:pre-wrap;">${(p.notes||'No additional notes recorded.').replace(/\\n/g,'<br>')}</div></div>
+    </div>`;
+  document.getElementById('sheetOverlay').classList.add('open');
+  renderQueue();
+}
+/* Close the generated case sheet overlay. */
+function closeSheet(){ document.getElementById('sheetOverlay').classList.remove('open'); }
+
+/* =========================================================
+   GLOBAL NAVIGATION & UI UTILITIES
+
+   Includes main-view switching, online/offline simulation,
+   language switching, and toast notifications.
+========================================================= */
+/* Switch between Patient Intake and Doctor Dashboard views. */
+function switchTab(tab){
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  document.getElementById('view-intake').classList.toggle('active', tab==='intake');
+  document.getElementById('view-doctor').classList.toggle('active', tab==='doctor');
+  if(tab==='doctor') renderQueue();
+}
+/* Toggle the prototype's simulated sync/connection state. */
+function toggleNet(){
+  netOnline = !netOnline;
+  const pill = document.getElementById('netPill');
+  pill.classList.toggle('off', !netOnline);
+  document.getElementById('netLabel').textContent = netOnline ? 'Synced' : 'Offline — queued locally';
+  toast(netOnline ? 'Back online — syncing queued records to server' : 'Offline mode — records saving locally, will sync automatically');
+}
+/* Switch the supported intake labels between English and Hindi. */
+function setLang(l){
+  lang = l;
+  document.getElementById('lang-en').classList.toggle('on', l==='en');
+  document.getElementById('lang-hi').classList.toggle('on', l==='hi');
+  if(l==='hi'){
+    document.getElementById('i-title').textContent = 'नया रोगी — केस इनटेक';
+    document.getElementById('i-sub').textContent = 'प्रतीक्षा के दौरान इसे भरें। यह सीधे डॉक्टर की स्क्रीन पर जाता है ताकि परामर्श का समय टाइपिंग में न जाए।';
+  } else {
+    document.getElementById('i-title').textContent = 'New patient — case intake';
+    document.getElementById('i-sub').textContent = "Fill this in while waiting. It goes straight to the doctor's screen so consultation time is spent on you, not on typing.";
+  }
+  toast(l==='hi' ? 'भाषा हिंदी में बदली गई (प्रमुख लेबल)' : 'Language switched to English');
+}
+/* Display a temporary toast notification. */
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(()=>t.classList.remove('show'), 3200);
+}
+
+/* =========================================================
+   APPLICATION INITIALIZATION
+   Runs once when the HTML file is opened.
+========================================================= */
+/* Initialize all dynamic UI areas in their original default state. */
+function init(){
+  renderComplaintChips();
+  renderFollowups();
+  renderChipSet('pmh-chips', PMH_OPTIONS, intake.pmh);
+  renderChipSet('allergy-chips', ALLERGY_OPTIONS, intake.allergy);
+  renderStep();
+  renderQueue();
+}
+init();
+</script>
+</body>
+</html>
